@@ -71,6 +71,8 @@ tbody tr:hover { background: #fffdf7; }
 .game-main { min-width: 0; }
 .game-card { padding: clamp(22px, 4vw, 34px); border-radius: 20px; background: radial-gradient(ellipse at top, #243458, var(--navy) 70%); color: white; }
 .game-meta { display: flex; align-items: center; justify-content: space-between; gap: 15px; margin-bottom: 24px; }
+.game-toolbar { display: flex; justify-content: space-between; align-items: center; margin: 0 4px 14px; }
+.player-badge { color: #657087; font-size: 13px; font-weight: 800; }
 .timer { color: #fff; font-size: 15px; font-weight: 850; }
 .timer-low { color: #ff7474; }
 .question-title { margin: 0 0 26px; font-size: clamp(20px, 3vw, 27px); line-height: 1.4; }
