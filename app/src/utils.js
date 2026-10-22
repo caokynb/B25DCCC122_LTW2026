@@ -9,7 +9,9 @@ export const calcPrize = (correctCount, reason) => {
 
 export const createAudiencePercentages = (correctIndex, hiddenAnswers) => {
   const available = [0, 1, 2, 3].filter((index) => !hiddenAnswers.includes(index));
-  const correctPercent = Math.floor(Math.random() * 21) + 50;
+  const wrongCount = available.length - 1;
+  const correctMinimum = wrongCount === 1 ? 50 : 40;
+  const correctPercent = Math.floor(Math.random() * (71 - correctMinimum)) + correctMinimum;
   const percentages = [0, 0, 0, 0];
   percentages[correctIndex] = correctPercent;
   let remaining = 100 - correctPercent;

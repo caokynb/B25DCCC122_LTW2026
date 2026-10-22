@@ -42,7 +42,7 @@ export const Play = () => {
   }, [hiddenAnswers, status]);
 
   useEffect(() => {
-    if (status !== 'answering') return undefined;
+    if (status !== 'answering' || !question || !playerName) return undefined;
     const intervalId = window.setInterval(() => {
       setTimeLeft((currentTime) => {
         if (currentTime <= 1) {
@@ -55,7 +55,7 @@ export const Play = () => {
       });
     }, 1000);
     return () => window.clearInterval(intervalId);
-  }, [status]);
+  }, [playerName, question, status]);
 
   useEffect(() => {
     if (status === 'locked') {

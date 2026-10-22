@@ -90,8 +90,8 @@ tbody tr:hover { background: #fffdf7; }
 .ladder-row.current { background: #fff0bd; color: #644600; font-weight: 900; }
 .lifeline-row { display: flex; flex-wrap: wrap; gap: 9px; margin: 16px 0; }
 .lifeline-row .button { min-height: 38px; padding: 0 12px; font-size: 12px; }
-.audience-chart { display: flex; gap: 8px; margin: 14px 0 22px; }
-.audience-bar { min-width: 44px; padding: 8px 5px; border-radius: 8px; background: linear-gradient(180deg, #ffd773, #ffbd35); color: #4a3608; font-size: 10px; font-weight: 900; text-align: center; }
+.audience-chart { display: flex; gap: 0; margin: 14px 0 22px; }
+.audience-bar { flex: 0 0 auto; min-width: 0; overflow: visible; padding: 8px 0; border-radius: 8px; background: linear-gradient(180deg, #ffd773, #ffbd35); color: #4a3608; font-size: 10px; font-weight: 900; text-align: center; white-space: nowrap; }
 .history-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 22px 0; }
 .stat-card { padding: 17px; border: 1px solid var(--line); border-radius: 13px; }
 .stat-card span { display: block; margin-bottom: 8px; color: var(--muted); font-size: 11px; font-weight: 800; }
@@ -99,6 +99,7 @@ tbody tr:hover { background: #fffdf7; }
 .result-panel { max-width: 760px; margin: auto; text-align: center; }
 .result-prize { margin: 24px 0; color: #976800; font-size: clamp(28px, 5vw, 46px); font-weight: 950; }
 .result-actions { display: flex; justify-content: center; gap: 12px; }
+.empty-history { padding: 28px; border: 1px dashed #dbe1eb; border-radius: 14px; color: var(--muted); text-align: center; }
 @media (max-width: 760px) {
   .topbar { height: auto; min-height: 72px; flex-wrap: wrap; padding: 18px 20px; }
   .topbar nav { width: 100%; justify-content: space-between; gap: 10px; }
