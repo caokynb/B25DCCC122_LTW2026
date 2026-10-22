@@ -44,10 +44,9 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
   letter-spacing: .08em;
   line-height: .95;
   text-decoration: none;
-  text-transform: uppercase;
+  text-transform: none;
   white-space: nowrap;
 }
-.brand::before { content: '✳ '; color: var(--coral); }
 .topbar nav { display: flex; align-items: center; gap: clamp(14px, 3vw, 34px); }
 .topbar nav a {
   padding: 8px 0;
