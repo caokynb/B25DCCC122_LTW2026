@@ -1,11 +1,15 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import useFetch from './hooks/useFetch';
+import useLocalStorage from './hooks/useLocalStorage';
+import useDebounce from './hooks/useDebounce';
 import { selectCourses, setCourses, removeCourse, setScore } from './features/coursesSlice';
+import { hasSaved } from './store';
 import { useTheme } from './context/ThemeContext';
 import { useNotice } from './context/NoticeContext';
-import { SEMESTERS, formatPoint } from './data';
+import { SEMESTERS, GRADES } from './data';
 import { getGrade, calcStats } from './utils';
+import CourseRow from './components/CourseRow';
 import AddCourseForm from './components/AddCourseForm';
 import GoalPlanner from './components/GoalPlanner';
 
@@ -18,15 +22,19 @@ function App() {
   const dispatch = useDispatch();
 
   const { data, loading, error } = useFetch('/data/courses.json');
-  const [semesterFilter, setSemesterFilter] = useState('all');
+  const [semesterFilter, setSemesterFilter] = useLocalStorage('ltw_sodiem_semester', 'all');
+
+  const [search, setSearch] = useState('');
+  const debouncedSearch = useDebounce(search, 300);
+  const searchInputRef = useRef(null);
 
   useEffect(() => {
-    if (data) {
+    if (!hasSaved && data) {
       dispatch(setCourses(data));
     }
   }, [data, dispatch]);
 
-  const filteredCourses = useMemo(() => {
+  const semesterCourses = useMemo(() => {
     if (semesterFilter === 'all') {
       return courses;
     }
@@ -34,19 +42,97 @@ function App() {
   }, [courses, semesterFilter]);
 
   const currentStats = useMemo(() => {
-    return calcStats(filteredCourses);
-  }, [filteredCourses]);
+    return calcStats(semesterCourses);
+  }, [semesterCourses]);
 
   const allStats = useMemo(() => {
     return calcStats(courses);
   }, [courses]);
 
-  const handleRemove = (course) => {
-    dispatch(removeCourse(course.id));
-    showNotice(`Đã xóa môn ${course.name}`);
+  const gradeDistribution = useMemo(() => {
+    return GRADES.map((g) => {
+      const count = semesterCourses.filter(
+        (c) => getGrade(Number(c.score)).letter === g.letter
+      ).length;
+      return { letter: g.letter, count };
+    });
+  }, [semesterCourses]);
+
+  const filteredCourses = useMemo(() => {
+    if (!debouncedSearch.trim()) {
+      return semesterCourses;
+    }
+    const query = debouncedSearch.trim().toLowerCase();
+    return semesterCourses.filter(
+      (c) =>
+        c.name.toLowerCase().includes(query) ||
+        c.code.toLowerCase().includes(query)
+    );
+  }, [semesterCourses, debouncedSearch]);
+
+  const handleCourseShift = (e) => {
+    setSearch(e.target.value);
   };
 
-  if (loading) {
+  useEffect(() => {
+    const handleKey = (e) => {
+      if (e.key === '/') {
+        const tag = document.activeElement ? document.activeElement.tagName.toLowerCase() : '';
+        const isInput =
+          tag === 'input' ||
+          tag === 'select' ||
+          tag === 'textarea' ||
+          (document.activeElement && document.activeElement.isContentEditable);
+        if (!isInput) {
+          e.preventDefault();
+          if (searchInputRef.current) {
+            searchInputRef.current.focus();
+          }
+        }
+      } else if (e.key === 'Escape' || e.key === 'Esc') {
+        if (document.activeElement === searchInputRef.current) {
+          setSearch('');
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKey);
+    return () => {
+      window.removeEventListener('keydown', handleKey);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (courses.length > 0) {
+      document.title = `GPA ${allStats.gpa.toFixed(2)} – Sổ điểm`;
+    } else {
+      document.title = 'Sổ điểm';
+    }
+  }, [courses.length, allStats.gpa]);
+
+  const handleScore = useCallback(
+    (id, score) => {
+      dispatch(setScore({ id, score }));
+    },
+    [dispatch]
+  );
+
+  const handleRemove = useCallback(
+    (course) => {
+      dispatch(removeCourse(course.id));
+      showNotice(`Đã xóa môn ${course.name}`);
+    },
+    [dispatch, showNotice]
+  );
+
+  const handleReset = () => {
+    if (data) {
+      dispatch(setCourses(data));
+      showNotice('Đã đặt lại dữ liệu mẫu');
+    }
+  };
+
+  if (!hasSaved && loading) {
     return (
       <div className={`app ${theme}`} data-build={BUILD_TAG}>
         <p>Đang tải bảng điểm...</p>
@@ -54,7 +140,7 @@ function App() {
     );
   }
 
-  if (error) {
+  if (!hasSaved && error) {
     return (
       <div className={`app ${theme}`} data-build={BUILD_TAG}>
         <p>Không tải được bảng điểm</p>
@@ -76,6 +162,19 @@ function App() {
         <div>GPA (hệ 4): {currentStats.gpa.toFixed(2)}</div>
         <div>Xếp loại: {currentStats.rank}</div>
         <div>GPA tích lũy: {allStats.gpa.toFixed(2)}</div>
+
+        <h3>Phân bố điểm chữ</h3>
+        <ul>
+          {gradeDistribution.map((item) => (
+            <li key={item.letter}>
+              {item.letter}: {item.count}
+              <span
+                className="grade-bar"
+                style={{ width: `${24 * item.count}px` }}
+              />
+            </li>
+          ))}
+        </ul>
       </section>
 
       <section className="courses-section">
@@ -96,6 +195,20 @@ function App() {
           </select>
         </div>
 
+        <div className="search-group">
+          <label htmlFor="search-input">Tìm môn học</label>
+          <input
+            id="search-input"
+            type="text"
+            ref={searchInputRef}
+            value={search}
+            onChange={handleCourseShift}
+            placeholder="Tìm kiếm môn học..."
+          />
+        </div>
+
+        <p>Tìm thấy {filteredCourses.length} môn</p>
+
         {filteredCourses.length === 0 ? (
           <p>Chưa có môn học nào</p>
         ) : (
@@ -109,48 +222,26 @@ function App() {
                 <th>Điểm (hệ 10)</th>
                 <th>Điểm chữ</th>
                 <th>Điểm (hệ 4)</th>
-                <th>Thao tác</th>
+                <th>Số lần render</th>
+                <th>Xóa</th>
               </tr>
             </thead>
             <tbody>
-              {filteredCourses.map((c) => {
-                const grade = getGrade(Number(c.score));
-                const isF = grade.letter === 'F';
-                return (
-                  <tr key={c.id} style={isF ? { color: '#c62828' } : {}}>
-                    <td>{c.code}</td>
-                    <td>{c.name}</td>
-                    <td>{c.credits}</td>
-                    <td>{c.semester}</td>
-                    <td>
-                      <input
-                        type="number"
-                        min="0"
-                        max="10"
-                        step="0.1"
-                        value={c.score}
-                        aria-label={`Điểm ${c.name}`}
-                        onChange={(e) => {
-                          const val = e.target.valueAsNumber;
-                          if (!isNaN(val) && val >= 0 && val <= 10) {
-                            dispatch(setScore({ id: c.id, score: val }));
-                          }
-                        }}
-                      />
-                    </td>
-                    <td>{isF ? 'F – Học lại' : grade.letter}</td>
-                    <td>{formatPoint(grade.point)}</td>
-                    <td>
-                      <button type="button" onClick={() => handleRemove(c)}>
-                        Xóa
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
+              {filteredCourses.map((c) => (
+                <CourseRow
+                  key={c.id}
+                  course={c}
+                  onScore={handleScore}
+                  onRemove={handleRemove}
+                />
+              ))}
             </tbody>
           </table>
         )}
+
+        <button type="button" onClick={handleReset}>
+          Đặt lại dữ liệu mẫu
+        </button>
       </section>
 
       <AddCourseForm />
