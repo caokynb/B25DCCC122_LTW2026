@@ -1,30 +1,30 @@
-import { useState, useReducer, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo } from 'react';
+import { useSelector, useDispatch } from 'react-redux';
 import useFetch from './hooks/useFetch';
-import { coursesReducer } from './coursesReducer';
-import { SEMESTERS, CREDIT_OPTIONS, formatPoint } from './data';
+import { selectCourses, setCourses, removeCourse, setScore } from './features/coursesSlice';
+import { useTheme } from './context/ThemeContext';
+import { useNotice } from './context/NoticeContext';
+import { SEMESTERS, formatPoint } from './data';
 import { getGrade, calcStats } from './utils';
+import AddCourseForm from './components/AddCourseForm';
+import GoalPlanner from './components/GoalPlanner';
 
 const BUILD_TAG = 'gp-4073';
 
 function App() {
+  const { theme, toggleTheme } = useTheme();
+  const showNotice = useNotice();
+  const courses = useSelector(selectCourses);
+  const dispatch = useDispatch();
+
   const { data, loading, error } = useFetch('/data/courses.json');
-  const [courses, dispatch] = useReducer(coursesReducer, []);
   const [semesterFilter, setSemesterFilter] = useState('all');
-
-  const [code, setCode] = useState('');
-  const [name, setName] = useState('');
-  const [credits, setCredits] = useState(3);
-  const [semester, setSemester] = useState('Học kỳ 1');
-  const [score, setScore] = useState('');
-  const [errors, setErrors] = useState({});
-
-  const codeInputRef = useRef(null);
 
   useEffect(() => {
     if (data) {
-      dispatch({ type: 'LOAD', payload: data });
+      dispatch(setCourses(data));
     }
-  }, [data]);
+  }, [data, dispatch]);
 
   const filteredCourses = useMemo(() => {
     if (semesterFilter === 'all') {
@@ -41,58 +41,14 @@ function App() {
     return calcStats(courses);
   }, [courses]);
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    const errs = {};
-    const cleanCode = code.trim();
-    if (!cleanCode) {
-      errs.code = 'Hãy nhập mã môn';
-    } else if (
-      courses.some((c) => c.code.trim().toLowerCase() === cleanCode.toLowerCase())
-    ) {
-      errs.code = 'Mã môn đã tồn tại';
-    }
-
-    const cleanName = name.trim();
-    if (!cleanName) {
-      errs.name = 'Hãy nhập tên môn';
-    }
-
-    const numScore = parseFloat(score);
-    if (score === '' || isNaN(numScore) || numScore < 0 || numScore > 10) {
-      errs.score = 'Điểm phải từ 0 đến 10';
-    }
-
-    if (Object.keys(errs).length > 0) {
-      setErrors(errs);
-      return;
-    }
-
-    dispatch({
-      type: 'ADD',
-      payload: {
-        code: cleanCode.toUpperCase(),
-        name: cleanName,
-        credits: Number(credits),
-        semester,
-        score: numScore,
-      },
-    });
-
-    setCode('');
-    setName('');
-    setCredits(3);
-    setSemester('Học kỳ 1');
-    setScore('');
-    setErrors({});
-    if (codeInputRef.current) {
-      codeInputRef.current.focus();
-    }
+  const handleRemove = (course) => {
+    dispatch(removeCourse(course.id));
+    showNotice(`Đã xóa môn ${course.name}`);
   };
 
   if (loading) {
     return (
-      <div className="app" data-build={BUILD_TAG}>
+      <div className={`app ${theme}`} data-build={BUILD_TAG}>
         <p>Đang tải bảng điểm...</p>
       </div>
     );
@@ -100,15 +56,18 @@ function App() {
 
   if (error) {
     return (
-      <div className="app" data-build={BUILD_TAG}>
+      <div className={`app ${theme}`} data-build={BUILD_TAG}>
         <p>Không tải được bảng điểm</p>
       </div>
     );
   }
 
   return (
-    <div className="app" data-build={BUILD_TAG}>
+    <div className={`app ${theme}`} data-build={BUILD_TAG}>
       <h1>Sổ điểm sinh viên</h1>
+      <button type="button" onClick={toggleTheme}>
+        {theme === 'light' ? 'Chế độ tối' : 'Chế độ sáng'}
+      </button>
 
       <section className="stats-section">
         <h2>Thống kê</h2>
@@ -174,10 +133,7 @@ function App() {
                         onChange={(e) => {
                           const val = e.target.valueAsNumber;
                           if (!isNaN(val) && val >= 0 && val <= 10) {
-                            dispatch({
-                              type: 'SET_SCORE',
-                              payload: { id: c.id, score: val },
-                            });
+                            dispatch(setScore({ id: c.id, score: val }));
                           }
                         }}
                       />
@@ -185,10 +141,7 @@ function App() {
                     <td>{isF ? 'F – Học lại' : grade.letter}</td>
                     <td>{formatPoint(grade.point)}</td>
                     <td>
-                      <button
-                        type="button"
-                        onClick={() => dispatch({ type: 'REMOVE', payload: c.id })}
-                      >
+                      <button type="button" onClick={() => handleRemove(c)}>
                         Xóa
                       </button>
                     </td>
@@ -200,79 +153,8 @@ function App() {
         )}
       </section>
 
-      <section className="add-course-section">
-        <h2>Thêm môn học</h2>
-        <form onSubmit={handleSubmit}>
-          <div className="form-group">
-            <label htmlFor="code-input">Mã môn</label>
-            <input
-              id="code-input"
-              type="text"
-              ref={codeInputRef}
-              value={code}
-              onChange={(e) => setCode(e.target.value)}
-            />
-            {errors.code && <span role="alert">{errors.code}</span>}
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="name-input">Tên môn</label>
-            <input
-              id="name-input"
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-            />
-            {errors.name && <span role="alert">{errors.name}</span>}
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="credits-select">Số tín chỉ</label>
-            <select
-              id="credits-select"
-              value={credits}
-              onChange={(e) => setCredits(e.target.value)}
-            >
-              {CREDIT_OPTIONS.map((opt) => (
-                <option key={opt} value={opt}>
-                  {opt}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="semester-select">Học kỳ</label>
-            <select
-              id="semester-select"
-              value={semester}
-              onChange={(e) => setSemester(e.target.value)}
-            >
-              {SEMESTERS.map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="score-input">Điểm hệ 10</label>
-            <input
-              id="score-input"
-              type="number"
-              min="0"
-              max="10"
-              step="0.1"
-              value={score}
-              onChange={(e) => setScore(e.target.value)}
-            />
-            {errors.score && <span role="alert">{errors.score}</span>}
-          </div>
-
-          <button type="submit">Thêm môn</button>
-        </form>
-      </section>
+      <AddCourseForm />
+      <GoalPlanner />
     </div>
   );
 }

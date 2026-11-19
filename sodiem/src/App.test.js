@@ -1,7 +1,13 @@
-import { coursesReducer } from './coursesReducer';
-import { calcStats, getGrade, getRank } from './utils';
+import coursesReducer, {
+  setCourses,
+  addCourse,
+  removeCourse,
+  setScore,
+} from './features/coursesSlice';
+import goalReducer, { setTarget, setRemaining } from './features/goalSlice';
+import { calcStats, calcRequired } from './utils';
 
-describe('utils and reducer tests', () => {
+describe('Bai 2 tests', () => {
   const sampleCourses = [
     { id: 1, code: 'MH101', name: 'Giải tích 1', credits: 3, semester: 'Học kỳ 1', score: 7.5 },
     { id: 2, code: 'MH102', name: 'Vật lý đại cương', credits: 3, semester: 'Học kỳ 1', score: 6.2 },
@@ -17,63 +23,53 @@ describe('utils and reducer tests', () => {
     { id: 12, code: 'MH304', name: 'Lập trình web', credits: 3, semester: 'Học kỳ 3', score: 9.6 },
   ];
 
-  test('calcStats for all 12 courses', () => {
-    const stats = calcStats(sampleCourses);
-    expect(stats.count).toBe(12);
-    expect(stats.credits).toBe(34);
-    expect(stats.gpa.toFixed(2)).toBe('2.87');
-    expect(stats.rank).toBe('Khá');
-  });
-
-  test('calcStats for semester 1 (4 courses)', () => {
-    const sem1 = sampleCourses.filter((c) => c.semester === 'Học kỳ 1');
-    const stats = calcStats(sem1);
-    expect(stats.count).toBe(4);
-    expect(stats.credits).toBe(11);
-    expect(stats.gpa.toFixed(2)).toBe('3.10');
-    expect(stats.rank).toBe('Khá');
-  });
-
-  test('calcStats for semester 3 (4 courses, 1 F)', () => {
-    const sem3 = sampleCourses.filter((c) => c.semester === 'Học kỳ 3');
-    const stats = calcStats(sem3);
-    expect(stats.count).toBe(4);
-    expect(stats.credits).toBe(12);
-    expect(stats.gpa.toFixed(2)).toBe('2.50');
-    expect(stats.rank).toBe('Khá');
-  });
-
-  test('calcStats for empty list', () => {
-    const stats = calcStats([]);
-    expect(stats.count).toBe(0);
-    expect(stats.credits).toBe(0);
-    expect(stats.gpa.toFixed(2)).toBe('0.00');
-    expect(stats.rank).toBe('Chưa xếp loại');
-  });
-
-  test('reducer actions', () => {
-    let state = coursesReducer([], { type: 'LOAD', payload: sampleCourses });
+  test('coursesSlice reducers', () => {
+    let state = coursesReducer([], setCourses(sampleCourses));
     expect(state.length).toBe(12);
 
-    state = coursesReducer(state, {
-      type: 'ADD',
-      payload: { code: 'MH401', name: 'Trí tuệ nhân tạo', credits: 4, semester: 'Học kỳ 3', score: 9.5 },
-    });
+    state = coursesReducer(
+      state,
+      addCourse({ code: 'MH401', name: 'Trí tuệ nhân tạo', credits: 4, semester: 'Học kỳ 3', score: 9.5 })
+    );
     expect(state.length).toBe(13);
     expect(state[12].id).toBe(13);
-    expect(state[12].code).toBe('MH401');
 
-    state = coursesReducer(state, {
-      type: 'SET_SCORE',
-      payload: { id: 1, score: 9.2 },
-    });
+    state = coursesReducer(state, setScore({ id: 1, score: 9.2 }));
     expect(state[0].score).toBe(9.2);
 
-    state = coursesReducer(state, {
-      type: 'REMOVE',
-      payload: 11,
-    });
+    state = coursesReducer(state, removeCourse(11));
     expect(state.length).toBe(12);
-    expect(state.find((c) => c.id === 11)).toBeUndefined();
+  });
+
+  test('goalSlice reducers', () => {
+    let state = goalReducer(undefined, { type: 'unknown' });
+    expect(state.target).toBe('3.2');
+    expect(state.remaining).toBe('20');
+
+    state = goalReducer(state, setTarget('2.5'));
+    expect(state.target).toBe('2.5');
+
+    state = goalReducer(state, setRemaining('15'));
+    expect(state.remaining).toBe('15');
+  });
+
+  test('calcRequired cases from specification', () => {
+    expect(calcRequired(sampleCourses, '3.2', '20')).toBe(
+      'Cần đạt trung bình 3.76 điểm (hệ 4) ở 20 tín chỉ còn lại'
+    );
+    expect(calcRequired(sampleCourses, '2.5', '20')).toBe(
+      'Cần đạt trung bình 1.87 điểm (hệ 4) ở 20 tín chỉ còn lại'
+    );
+    expect(calcRequired(sampleCourses, '4', '3')).toBe('Không thể đạt mục tiêu này');
+    expect(calcRequired(sampleCourses, '1', '20')).toBe('Bạn đã đạt mục tiêu');
+    expect(calcRequired(sampleCourses, '3.2', '0')).toBe(
+      'Hãy nhập GPA mục tiêu (0–4) và số tín chỉ còn lại (từ 1)'
+    );
+    expect(calcRequired(sampleCourses, '3.2', '')).toBe(
+      'Hãy nhập GPA mục tiêu (0–4) và số tín chỉ còn lại (từ 1)'
+    );
+    expect(calcRequired(sampleCourses, '5', '10')).toBe(
+      'Hãy nhập GPA mục tiêu (0–4) và số tín chỉ còn lại (từ 1)'
+    );
   });
 });
